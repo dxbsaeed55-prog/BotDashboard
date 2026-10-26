@@ -19,17 +19,34 @@ def update_stats():
             return jsonify({"status": "error", "message": "Invalid data"}), 400
         
         username = data['username']
-        # Save all incoming keys directly so your frontend displays them perfectly
+        
+        # Format uptime nicely into a readable string (e.g., "1h 24m" or "45s")
+        raw_uptime = int(data.get("uptime", 0))
+        hours = raw_uptime // 3600
+        minutes = (raw_uptime % 3600) // 60
+        seconds = raw_uptime % 60
+        if hours > 0:
+            uptime_str = f"{hours}h {minutes}m"
+        elif minutes > 0:
+            uptime_str = f"{minutes}m {seconds}s"
+        else:
+            uptime_str = f"{seconds}s"
+
+        # Map incoming data directly to the keys your index.html expects
         active_bots[username] = {
             "username": username,
-            "level": data.get("level", "N/A"),
-            "money": data.get("money", "N/A"),
-            "hourly_rate": data.get("hourly_rate", "N/A"),
-            "fish": data.get("fish", "N/A"),
-            "stock": data.get("stock", "N/A"),
-            "stam": data.get("stam", "N/A"),
-            "farm": data.get("farm", "N/A"),
-            "uptime": data.get("uptime", "N/A"),
+            "level": data.get("level", "1"),
+            "level": data.get("level", "1"),
+            "money": data.get("money", 0),
+            "hourly_rate": data.get("hourly_rate", "$0/hr"),
+            "rate_class": data.get("rate_class", "stagnant"),
+            "fishing": data.get("fishing", "0"),
+            "stocker": data.get("stocker", "0"),
+            "stamina": data.get("stamina", "0"),
+            "farming": data.get("farming", "0"),
+            "reconnects": data.get("reconnects", 0),
+            "uptime_str": uptime_str,
+            "is_online": True,
             "last_seen": time.time()
         }
         return jsonify({"status": "success"}), 200
@@ -39,12 +56,25 @@ def update_stats():
 @app.route('/api/get_instances', methods=['GET'])
 def get_instances():
     current_time = time.time()
-    # Remove bots that haven't sent stats in the last 15 seconds
-    offline_bots = [uname for uname, info in active_bots.items() if current_time - info['last_seen'] > 15]
-    for uname in offline_bots:
-        del active_bots[uname]
+    # Mark bots offline or remove them if they haven't pinged in 15 seconds
+    for uname, info in list(active_bots.items()):
+        if current_time - info['last_seen'] > 15:
+            info['is_online'] = False
+        if current_time - info['last_seen'] > 30: # Delete completely after 30s
+            del active_bots[uname]
         
     return jsonify(list(active_bots.values()))
+
+@app.route('/api/delete_instance', methods=['POST'])
+def delete_instance():
+    try:
+        data = request.json
+        username = data.get('username')
+        if username in active_bots:
+            del active_bots[username]
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/script.lua')
 def script():
@@ -60,13 +90,15 @@ def script():
                     },
                     Body = game:GetService("HttpService"):JSONEncode({
                         username = game.Players.LocalPlayer.Name,
-                        level = "Active", 
-                        money = "$0", 
-                        hourly_rate = "0/hr",
-                        fish = "0",
-                        stock = "0",
-                        stam = "0",
-                        farm = "0",
+                        level = "15", 
+                        money = 12500, 
+                        hourly_rate = "$2,400/hr",
+                        rate_class = "rising",
+                        fishing = "12",
+                        stocker = "8",
+                        stamina = "45",
+                        farming = "3",
+                        reconnects = 0,
                         uptime = math.floor(workspace.DistributedGameTime)
                     })
                 })
