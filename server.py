@@ -19,11 +19,16 @@ def update_stats():
             return jsonify({"status": "error", "message": "Invalid data"}), 400
         
         username = data['username']
-        # Update bot info with a fresh timestamp
+        # Save all incoming keys directly so your frontend displays them perfectly
         active_bots[username] = {
             "username": username,
             "level": data.get("level", "N/A"),
             "money": data.get("money", "N/A"),
+            "hourly_rate": data.get("hourly_rate", "N/A"),
+            "fish": data.get("fish", "N/A"),
+            "stock": data.get("stock", "N/A"),
+            "stam": data.get("stam", "N/A"),
+            "farm": data.get("farm", "N/A"),
             "uptime": data.get("uptime", "N/A"),
             "last_seen": time.time()
         }
@@ -34,7 +39,7 @@ def update_stats():
 @app.route('/api/get_instances', methods=['GET'])
 def get_instances():
     current_time = time.time()
-    # Remove bots that haven't sent stats in the last 15 seconds (disconnected/crashed)
+    # Remove bots that haven't sent stats in the last 15 seconds
     offline_bots = [uname for uname, info in active_bots.items() if current_time - info['last_seen'] > 15]
     for uname in offline_bots:
         del active_bots[uname]
@@ -43,7 +48,6 @@ def get_instances():
 
 @app.route('/script.lua')
 def script():
-    # Automatically points bots to your live Render domain
     lua_code = """
     task.spawn(function()
         while true do
@@ -57,7 +61,12 @@ def script():
                     Body = game:GetService("HttpService"):JSONEncode({
                         username = game.Players.LocalPlayer.Name,
                         level = "Active", 
-                        money = "Tracking", 
+                        money = "$0", 
+                        hourly_rate = "0/hr",
+                        fish = "0",
+                        stock = "0",
+                        stam = "0",
+                        farm = "0",
                         uptime = math.floor(workspace.DistributedGameTime)
                     })
                 })
