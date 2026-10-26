@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block Spin // Bot Farm Telemetry</title>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 30px;
+        }
+        .container {
+            max-width: 1300px;
+            margin: auto;
+        }
+        .header-bar {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 20px 25px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            letter-spacing: 0.05em;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .active-badge {
+            background: #0284c7;
+            color: #e0f2fe;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        th, td {
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        th {
+            background: #0f172a;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover td {
+            background: rgba(51, 65, 85, 0.3);
+        }
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; }
+        .status-offline { background-color: #ef4444; box-shadow: 0 0 10px #ef4444; }
+        
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(2, auto);
+            gap: 4px 12px;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            margin-top: 4px;
+        }
+        .skill-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .action-btn {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .action-btn:hover {
+            background: #dc2626;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+        }
+        .rising { color: #4ade80; font-weight: 600; }
+        .stagnant { color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <h2>BLOCK SPIN // BOT FARM TELEMETRY</h2>
+            <div class="active-badge" id="active-count">Active Instances: 0</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Level & Skills</th>
+                    <th>Money</th>
+                    <th>Hourly Rate (1H)</th>
+                    <th>Uptime</th>
+                    <th>Bot Username</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="instance-table-body">
+                <!-- Dynamically populated -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function deleteInstance(username) {
+            if (confirm("Remove " + username + " from dashboard?")) {
+                fetch('/api/delete_instance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') fetchInstances();
+                });
+            }
+        }
+
+        function fetchInstances() {
+            fetch('/api/get_instances')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('instance-table-body');
+                    tbody.innerHTML = '';
+                    
+                    let activeCount = 0;
+
+                    data.forEach(inst => {
+                        if (inst.is_online) activeCount++;
+
+                        const tr = document.createElement('tr');
+                        const dotClass = inst.is_online ? 'status-online' : 'status-offline';
+
+                        tr.innerHTML = `
+                            <td>
+                                <strong style="font-size: 1.1rem;">Lvl ${inst.level}</strong>
+                                <div class="skills-grid">
+                                    <div class="skill-item">🎣 Fish: ${inst.fishing}</div>
+                                    <div class="skill-item">📦 Stock: ${inst.stocker}</div>
+                                    <div class="skill-item">⚡ Stam: ${inst.stamina}</div>
+                                    <div class="skill-item">🌾 Farm: ${inst.farming}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <strong style="font-size: 1.05rem; color: #38bdf8;">$${inst.money.toLocaleString()}</strong><br>
+                                <small style="color: #64748b;">Reconnects: ${inst.reconnects}x</small>
+                            </td>
+                            <td><span class="${inst.rate_class}">${inst.hourly_rate}</span></td>
+                            <td>⏱️ ${inst.uptime_str}</td>
+                            <td>
+                                <span class="status-dot ${dotClass}"></span>
+                                <strong>${inst.username}</strong>
+                            </td>
+                            <td>
+                                <button class="action-btn" onclick="deleteInstance('${inst.username}')">Remove</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    document.getElementById('active-count').innerText = `Active Instances: ${activeCount} Active`;
+                });
+        }
+
+        setInterval(fetchInstances, 2000);
+        fetchInstances();
+    </script>
+</body>
+</html>
